@@ -7,8 +7,8 @@ from lib.accuracy import *
 from vis.plot import *
 
 
-gt_file = r'./test_s3_gt.txt'
-pred_file = r'./test_res.txt'
+gt_file = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/experiments/msra-subject3/test_res.txt'
+pred_file = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/experiments/msra-subject3/test_s3_gt.txt'
 
 
 gt = np.loadtxt(gt_file)
