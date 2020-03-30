@@ -59,8 +59,8 @@ class MARAHandDataset(Dataset):
         self.fy = 241.42
         self.joint_num = 21
         self.world_dim = 3
-        self.folder_list = ['1','2','3','4','5','6','7','8','9','I','IP','L','MP','RP','T','TIP','Y']
-        self.subject_num = 9
+        self.folder_list = ['5']
+        self.subject_num = 1
 
         self.root = root
         self.center_dir = center_dir
@@ -191,7 +191,7 @@ class MARAHandDataset(Dataset):
 # Generate train_subject3_gt.txt and test_subject3_gt.txt
 data_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand'
 center_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand-center'
-test_subject_id = 3
+test_subject_id = 0
 
 
 ##%%
@@ -201,12 +201,12 @@ def save_keypoints(filename, keypoints):
     np.savetxt(filename, keypoints, fmt='%0.4f')
 
 
-##%%
-train_dataset = MARAHandDataset(root=data_dir, center_dir=center_dir, mode='train', test_subject_id=test_subject_id)
-names, joints_world, ref_pts = train_dataset.get_data()
-print('save train reslt ..')
-save_keypoints('./train_s3_gt.txt', joints_world)
-print('done ..')
+# ##%%
+# train_dataset = MARAHandDataset(root=data_dir, center_dir=center_dir, mode='train', test_subject_id=test_subject_id)
+# names, joints_world, ref_pts = train_dataset.get_data()
+# print('save train reslt ..')
+# save_keypoints('./train_s3_gt.txt', joints_world)
+# print('done ..')
 
 
 ##%%

@@ -12,10 +12,12 @@ pred_file = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/experiments/msra-sub
 
 
 gt = np.loadtxt(gt_file)
-gt = gt.reshape(gt.shape[0], -1, 3)
+# gt = gt.reshape(gt.shape[0], -1, 3)
+gt = gt.reshape(1, -1, 3)
 
 pred = np.loadtxt(pred_file)
-pred = pred.reshape(pred.shape[0], -1, 3)
+# pred = pred.reshape(pred.shape[0], -1, 3)
+pred = pred.reshape(1, -1, 3)
 
 print('gt: ', gt.shape)
 print('pred: ', pred.shape)

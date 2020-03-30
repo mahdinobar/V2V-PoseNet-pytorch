@@ -58,8 +58,8 @@ class MARAHandDataset(Dataset):
         self.fy = 241.42
         self.joint_num = 21
         self.world_dim = 3
-        self.folder_list = ['1','2','3','4','5','6','7','8','9','I','IP','L','MP','RP','T','TIP','Y']
-        self.subject_num = 9
+        self.folder_list = ['5']
+        self.subject_num = 1
 
         self.root = root
         self.center_dir = center_dir
@@ -69,7 +69,7 @@ class MARAHandDataset(Dataset):
 
         if not self.mode in ['train', 'test']: raise ValueError('Invalid mode')
         assert self.test_subject_id >= 0 and self.test_subject_id < self.subject_num
-
+        # check if joint.txt exists: '/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand/P0/1/joint.txt'
         if not self._check_exists(): raise RuntimeError('Invalid MSRA hand dataset')
         
         self._load()

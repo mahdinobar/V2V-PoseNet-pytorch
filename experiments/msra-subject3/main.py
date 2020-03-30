@@ -28,7 +28,7 @@ from datasets.msra_hand import MARAHandDataset
 def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch Hand Keypoints Estimation Training')
     #parser.add_argument('--resume', 'r', action='store_true', help='resume from checkpoint')
-    parser.add_argument('--resume', '-r', default=-1, type=int, help='resume after epoch')
+    parser.add_argument('--resume', '-r', default=14, type=int, help='resume after epoch')
     args = parser.parse_args()
     return args
 
@@ -53,12 +53,12 @@ resume_after_epoch = args.resume
 
 save_checkpoint = True
 checkpoint_per_epochs = 1
-checkpoint_dir = r'./checkpoint'
+checkpoint_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/checkpoint/'
 
 start_epoch = 0
-epochs_num = 15
+epochs_num = 0
 
-batch_size = 12
+batch_size = 1
 
 
 #######################################################################################
@@ -68,7 +68,7 @@ print('==> Preparing data ..')
 data_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand'
 center_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand-center'
 keypoints_num = 21
-test_subject_id = 3
+test_subject_id = 0
 cubic_size = 200
 
 
@@ -93,7 +93,7 @@ def transform_val(sample):
 
 # Dataset and loader
 train_set = MARAHandDataset(data_dir, center_dir, 'train', test_subject_id, transform_train)
-train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=6)
+train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, num_workers=6)
 #train_num = 1
 #train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=False, num_workers=6,sampler=ChunkSampler(train_num, 0))
 
@@ -130,7 +130,7 @@ if resume_train:
     assert os.path.isdir(checkpoint_dir), 'Error: no checkpoint directory found!'
     assert os.path.isfile(checkpoint_file), 'Error: no checkpoint file of epoch {}'.format(epoch)
 
-    checkpoint = torch.load(os.path.join(checkpoint_dir, 'epoch'+str(epoch)+'.pth'))
+    checkpoint = torch.load(checkpoint_file, encoding='latin1')
     net.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     start_epoch = checkpoint['epoch'] + 1
@@ -211,17 +211,17 @@ test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuff
 test_res_collector = BatchResultCollector(len(test_set), transform_output)
 
 test_epoch(net, test_loader, test_res_collector, device, dtype)
-keypoints_test = test_res_collector.get_result()
+keypoints_test = test_res_collector.get_result()  #shape for original msra test: (8498, 21, 3)
 save_keypoints('./test_res.txt', keypoints_test)
 
 
-print('Fit on train dataset ..')
-fit_set = MARAHandDataset(data_dir, center_dir, 'train', test_subject_id, transform_test)
-fit_loader = torch.utils.data.DataLoader(fit_set, batch_size=batch_size, shuffle=False, num_workers=6)
-fit_res_collector = BatchResultCollector(len(fit_set), transform_output)
-
-test_epoch(net, fit_loader, fit_res_collector, device, dtype)
-keypoints_fit = fit_res_collector.get_result()
-save_keypoints('./fit_res.txt', keypoints_fit)
+# print('Fit on train dataset ..')
+# fit_set = MARAHandDataset(data_dir, center_dir, 'train', test_subject_id, transform_test)
+# fit_loader = torch.utils.data.DataLoader(fit_set, batch_size=batch_size, shuffle=False, num_workers=6)
+# fit_res_collector = BatchResultCollector(len(fit_set), transform_output)
+#
+# test_epoch(net, fit_loader, fit_res_collector, device, dtype)
+# keypoints_fit = fit_res_collector.get_result()
+# save_keypoints('./fit_res.txt', keypoints_fit)
 
 print('All done ..')
