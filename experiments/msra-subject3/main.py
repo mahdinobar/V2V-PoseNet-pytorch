@@ -10,8 +10,8 @@ from lib.solver import train_epoch, val_epoch, test_epoch
 from lib.sampler import ChunkSampler
 from src.v2v_model import V2VModel
 from src.v2v_util import V2VVoxelization
-from datasets.msra_hand import MARAHandDataset
-
+# from datasets.msra_hand import MARAHandDataset
+from datasets.TrueDepth_hand import MARAHandDataset
 
 #######################################################################################
 # Note,
