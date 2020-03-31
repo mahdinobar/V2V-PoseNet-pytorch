@@ -3,59 +3,81 @@ import numpy as np
 import sys
 import struct
 from torch.utils.data import Dataset
+from skimage import io
+from skimage.transform import resize
+import matplotlib.pyplot as plt
 
 
-def pixel2world(x, y, z, img_width, img_height, fx, fy):
-    w_x = (x - img_width / 2) * z / fx
-    w_y = (img_height / 2 - y) * z / fy
+def pixel2world(x, y, z, img_width, img_height, fx, fy, cx, cy):
+    w_x = (x - cx) * z / fx
+    w_y = (cy - y) * z / fy
     w_z = z
     return w_x, w_y, w_z
 
 
-def world2pixel(x, y, z, img_width, img_height, fx, fy):
-    p_x = x * fx / z + img_width / 2
-    p_y = img_height / 2 - y * fy / z
+def world2pixel(x, y, z, img_width, img_height, fx, fy, cx, cy):
+    p_x = x * fx / z + cx
+    p_y = cy - y * fy / z
     return p_x, p_y
 
 
-def depthmap2points(image, fx, fy):
+def depthmap2points(image, fx, fy, cx, cy):
     h, w = image.shape
     x, y = np.meshgrid(np.arange(w) + 1, np.arange(h) + 1)
     points = np.zeros((h, w, 3), dtype=np.float32)
-    points[:,:,0], points[:,:,1], points[:,:,2] = pixel2world(x, y, image, w, h, fx, fy)
+    points[:, :, 0], points[:, :, 1], points[:, :, 2] = pixel2world(x, y, image, w, h, fx, fy, cx, cy)
     return points
 
 
-def points2pixels(points, img_width, img_height, fx, fy):
+def points2pixels(points, img_width, img_height, fx, fy, cx, cy):
     pixels = np.zeros((points.shape[0], 2))
     pixels[:, 0], pixels[:, 1] = \
-        world2pixel(points[:,0], points[:, 1], points[:, 2], img_width, img_height, fx, fy)
+        world2pixel(points[:, 0], points[:, 1], points[:, 2], img_width, img_height, fx, fy, cx, cy)
     return pixels
 
 
 def load_depthmap(filename, img_width, img_height, max_depth):
-    with open(filename, mode='rb') as f:
-        data = f.read()
-        _, _, left, top, right, bottom = struct.unpack('I'*6, data[:6*4])
-        num_pixel = (right - left) * (bottom - top)
-        cropped_image = struct.unpack('f'*num_pixel, data[6*4:])
+    # with open(filename, mode='rb') as f:
+    # data = f.read()
+    # _, _, left, top, right, bottom = struct.unpack('I'*6, data[:6*4])
+    # num_pixel = (right - left) * (bottom - top)
+    # cropped_image = struct.unpack('f'*num_pixel, data[6*4:])
+    #
+    # cropped_image = np.asarray(cropped_image).reshape(bottom-top, -1)
+    # depth_image = np.zeros((img_height, img_width), dtype=np.float32)
+    # depth_image[top:bottom, left:right] = cropped_image
+    # depth_image[depth_image == 0] = max_depth
 
-        cropped_image = np.asarray(cropped_image).reshape(bottom-top, -1)
-        depth_image = np.zeros((img_height, img_width), dtype=np.float32)
-        depth_image[top:bottom, left:right] = cropped_image
-        depth_image[depth_image == 0] = max_depth
+    # return depth_image
 
-        return depth_image
+    depth_image = io.imread(filename)
+    # io.imshow(depth_image)
+    # io.show()
+    # resize the input depth map
+    depth_image = resize(depth_image, (240, 320, 3))[:, :, 0]
+    # io.imshow(depth_image, cmap=plt.cm.gray)
+    # io.show()
+    return depth_image * 1000
 
 
-class MARAHandDataset(Dataset):
+class HandDataset(Dataset):
     def __init__(self, root, center_dir, mode, test_subject_id, transform=None):
         self.img_width = 320
         self.img_height = 240
         self.min_depth = 100
         self.max_depth = 700
-        self.fx = 241.42
-        self.fy = 241.42
+
+        # iPhone calibration
+        iw = 3088.0
+        ih = 2316.0
+        xscale = self.img_height / ih
+        yscale = self.img_width / iw
+
+        # cx and cy maybe would need to be replaced
+        self.cx = 1153.2035 * xscale
+        self.cy = 1546.5824 * yscale
+        self.fx = 2880.0796 * xscale
+        self.fy = 2880.0796 * yscale
         self.joint_num = 21
         self.world_dim = 3
         self.folder_list = ['5']
@@ -71,12 +93,12 @@ class MARAHandDataset(Dataset):
         assert self.test_subject_id >= 0 and self.test_subject_id < self.subject_num
         # check if joint.txt exists: '/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand/P0/1/joint.txt'
         if not self._check_exists(): raise RuntimeError('Invalid MSRA hand dataset')
-        
+
         self._load()
-    
+
     def __getitem__(self, index):
         depthmap = load_depthmap(self.names[index], self.img_width, self.img_height, self.max_depth)
-        points = depthmap2points(depthmap, self.fx, self.fy)  # world calibrated x,y,z of depth map
+        points = depthmap2points(depthmap, self.fx, self.fy, self.cx, self.cy)
         points = points.reshape((-1, 3))
 
         sample = {
@@ -86,7 +108,7 @@ class MARAHandDataset(Dataset):
             'refpoint': self.ref_pts[index]
         }
 
-        if self.transform: sample = self.transform(sample)
+        # if self.transform: sample = self.transform(sample)
 
         return sample
 
@@ -102,24 +124,29 @@ class MARAHandDataset(Dataset):
         self.names = []
 
         # Collect reference center points strings
-        if self.mode == 'train': ref_pt_file = 'center_train_' + str(self.test_subject_id) + '_refined.txt'
-        else: ref_pt_file = 'center_test_' + str(self.test_subject_id) + '_refined.txt'
+        if self.mode == 'train':
+            ref_pt_file = 'center_train_' + str(self.test_subject_id) + '_refined.txt'
+        else:
+            ref_pt_file = 'center_test_' + str(self.test_subject_id) + '_refined.txt'
 
         with open(os.path.join(self.center_dir, ref_pt_file)) as f:
-                ref_pt_str = [l.rstrip() for l in f]
+            ref_pt_str = [l.rstrip() for l in f]
 
         #
         file_id = 0
         frame_id = 0
 
         for mid in range(self.subject_num):
-            if self.mode == 'train': model_chk = (mid != self.test_subject_id)
-            elif self.mode == 'test': model_chk = (mid == self.test_subject_id)
-            else: raise RuntimeError('unsupported mode {}'.format(self.mode))
-            
+            if self.mode == 'train':
+                model_chk = (mid != self.test_subject_id)
+            elif self.mode == 'test':
+                model_chk = (mid == self.test_subject_id)
+            else:
+                raise RuntimeError('unsupported mode {}'.format(self.mode))
+
             if model_chk:
                 for fd in self.folder_list:
-                    annot_file = os.path.join(self.root, 'P'+str(mid), fd, 'joint.txt')
+                    annot_file = os.path.join(self.root, 'P' + str(mid), fd, 'joint.txt')
 
                     lines = []
                     with open(annot_file) as f:
@@ -144,8 +171,8 @@ class MARAHandDataset(Dataset):
                             self.joints_world[frame_id, jid, 0] = float(splitted[jid * self.world_dim])
                             self.joints_world[frame_id, jid, 1] = float(splitted[jid * self.world_dim + 1])
                             self.joints_world[frame_id, jid, 2] = -float(splitted[jid * self.world_dim + 2])
-                        
-                        filename = os.path.join(self.root, 'P'+str(mid), fd, '{:0>6d}'.format(i-1) + '_depth.bin')
+
+                        filename = os.path.join(self.root, 'P' + str(mid), fd, '{:0>6d}'.format(i - 1) + '_depth.png')
                         self.names.append(filename)
 
                         frame_id += 1
@@ -157,17 +184,19 @@ class MARAHandDataset(Dataset):
         for mid in range(self.subject_num):
             num = 0
             for fd in self.folder_list:
-                annot_file = os.path.join(self.root, 'P'+str(mid), fd, 'joint.txt')
+                annot_file = os.path.join(self.root, 'P' + str(mid), fd, 'joint.txt')
                 with open(annot_file) as f:
                     num = int(f.readline().rstrip())
-                if mid == self.test_subject_id: self.test_size += num
-                else: self.train_size += num
+                if mid == self.test_subject_id:
+                    self.test_size += num
+                else:
+                    self.train_size += num
 
     def _check_exists(self):
         # Check basic data
         for mid in range(self.subject_num):
             for fd in self.folder_list:
-                annot_file = os.path.join(self.root, 'P'+str(mid), fd, 'joint.txt')
+                annot_file = os.path.join(self.root, 'P' + str(mid), fd, 'joint.txt')
                 if not os.path.exists(annot_file):
                     print('Error: annotation file {} does not exist'.format(annot_file))
                     return False

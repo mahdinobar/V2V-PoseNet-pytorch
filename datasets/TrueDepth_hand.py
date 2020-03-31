@@ -7,31 +7,31 @@ from skimage import io
 from skimage.transform import resize
 import matplotlib.pyplot as plt
 
-def pixel2world(x, y, z, img_width, img_height, fx, fy):
-    w_x = (x - img_width / 2) * z / fx
-    w_y = (img_height / 2 - y) * z / fy
+def pixel2world(x, y, z, img_width, img_height, fx, fy, cx, cy):
+    w_x = (x - cx) * z / fx
+    w_y = (cy - y) * z / fy
     w_z = z
     return w_x, w_y, w_z
 
 
-def world2pixel(x, y, z, img_width, img_height, fx, fy):
-    p_x = x * fx / z + img_width / 2
-    p_y = img_height / 2 - y * fy / z
+def world2pixel(x, y, z, img_width, img_height, fx, fy, cx, cy):
+    p_x = x * fx / z + cx
+    p_y = cy - y * fy / z
     return p_x, p_y
 
 
-def depthmap2points(image, fx, fy):
+def depthmap2points(image, fx, fy, cx, cy):
     h, w = image.shape
     x, y = np.meshgrid(np.arange(w) + 1, np.arange(h) + 1)
     points = np.zeros((h, w, 3), dtype=np.float32)
-    points[:,:,0], points[:,:,1], points[:,:,2] = pixel2world(x, y, image, w, h, fx, fy)
+    points[:,:,0], points[:,:,1], points[:,:,2] = pixel2world(x, y, image, w, h, fx, fy, cx, cy)
     return points
 
 
-def points2pixels(points, img_width, img_height, fx, fy):
+def points2pixels(points, img_width, img_height, fx, fy, cx, cy):
     pixels = np.zeros((points.shape[0], 2))
     pixels[:, 0], pixels[:, 1] = \
-        world2pixel(points[:,0], points[:, 1], points[:, 2], img_width, img_height, fx, fy)
+        world2pixel(points[:,0], points[:, 1], points[:, 2], img_width, img_height, fx, fy, cx, cy)
     return pixels
 
 
@@ -52,10 +52,11 @@ def load_depthmap(filename, img_width, img_height, max_depth):
     depth_image = io.imread(filename)
     io.imshow(depth_image)
     io.show()
+    # resize the input depth map
     depth_image = resize(depth_image, (240, 320, 3))[:, :, 0]
     io.imshow(depth_image, cmap=plt.cm.gray)
     io.show()
-    return depth_image
+    return depth_image * 1000
 
 class MARAHandDataset(Dataset):
     def __init__(self, root, center_dir, mode, test_subject_id, transform=None):
@@ -63,8 +64,18 @@ class MARAHandDataset(Dataset):
         self.img_height = 240
         self.min_depth = 100
         self.max_depth = 700
-        self.fx = 241.42
-        self.fy = 241.42
+
+        # iPhone calibration
+        iw = 3088.0
+        ih = 2316.0
+        xscale = self.img_height / ih
+        yscale = self.img_width / iw
+
+        # cx and cy maybe would need to be replaced
+        self.cx = 1153.2035 * xscale
+        self.cy = 1546.5824 * yscale
+        self.fx = 2880.0796 * xscale
+        self.fy = 2880.0796 * yscale
         self.joint_num = 21
         self.world_dim = 3
         self.folder_list = ['5']
@@ -85,7 +96,7 @@ class MARAHandDataset(Dataset):
     
     def __getitem__(self, index):
         depthmap = load_depthmap(self.names[index], self.img_width, self.img_height, self.max_depth)
-        points = depthmap2points(depthmap, self.fx, self.fy)
+        points = depthmap2points(depthmap, self.fx, self.fy, self.cx, self.cy)
         points = points.reshape((-1, 3))
 
         sample = {

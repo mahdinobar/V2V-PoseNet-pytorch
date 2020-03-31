@@ -12,6 +12,7 @@ from src.v2v_model import V2VModel
 from src.v2v_util import V2VVoxelization
 # from datasets.msra_hand import MARAHandDataset
 from datasets.TrueDepth_hand import MARAHandDataset
+from datasets.TrueDepth_hand_points_xyz import HandDataset
 
 #######################################################################################
 # Note,
@@ -205,7 +206,6 @@ def save_keypoints(filename, keypoints):
     keypoints = keypoints.reshape(keypoints.shape[0], -1)
     np.savetxt(filename, keypoints, fmt='%0.4f')
 
-
 test_set = MARAHandDataset(data_dir, center_dir, 'test', test_subject_id, transform_test)
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=6)
 test_res_collector = BatchResultCollector(len(test_set), transform_output)
@@ -213,6 +213,23 @@ test_res_collector = BatchResultCollector(len(test_set), transform_output)
 test_epoch(net, test_loader, test_res_collector, device, dtype)
 keypoints_test = test_res_collector.get_result()  #shape for original msra test: (8498, 21, 3)
 save_keypoints('./test_res.txt', keypoints_test)
+
+#######################################################################################
+# plot input depth map with estimated joints
+input_points_xyz = HandDataset(data_dir, center_dir, 'test', test_subject_id, transform_test).__getitem__(0)['points']
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure(figsize=(12,12))
+ax = fig.gca(projection='3d')
+
+ax.scatter(input_points_xyz[:, 0], input_points_xyz[:, 1], input_points_xyz[:, 2], marker="o", s=.01)
+keypoints_test = np.squeeze(keypoints_test)
+ax.scatter(keypoints_test[:, 0], keypoints_test[:, 1], keypoints_test[:, 2], marker="x", c='red', s=10)
+ax.view_init(elev=90, azim=0)
+plt.show()
+plt.close()
+#######################################################################################
 
 
 # print('Fit on train dataset ..')
