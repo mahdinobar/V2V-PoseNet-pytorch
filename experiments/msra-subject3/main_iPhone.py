@@ -11,25 +11,27 @@ from lib.sampler import ChunkSampler
 from src.v2v_model import V2VModel
 from src.v2v_util import V2VVoxelization
 
-from datasets.msra_hand import MARAHandDataset
-from datasets.msra_hand_points_xyz import HandDataset
-# from datasets.TrueDepth_hand import MARAHandDataset
-# from datasets.TrueDepth_hand_points_xyz import HandDataset
+# from datasets.msra_hand import MARAHandDataset
+# from datasets.msra_hand_points_xyz import HandDataset
+from datasets.TrueDepth_hand import MARAHandDataset
+from datasets.TrueDepth_hand_points_xyz import HandDataset
+
 
 #######################################################################################
 # Note,
 # Run in project root direcotry(ROOT_DIR) with:
 # PYTHONPATH=./ python experiments/msra-subject3/main.py
-# 
+#
 # This script will train model on MSRA hand datasets, save checkpoints to ROOT_DIR/checkpoint,
 # and save test results(test_res.txt) and fit results(fit_res.txt) to ROOT_DIR.
 #
+
 
 #######################################################################################
 ## Some helpers
 def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch Hand Keypoints Estimation Training')
-    #parser.add_argument('--resume', 'r', action='store_true', help='resume from checkpoint')
+    # parser.add_argument('--resume', 'r', action='store_true', help='resume from checkpoint')
     parser.add_argument('--resume', '-r', default=14, type=int, help='resume after epoch')
     args = parser.parse_args()
     return args
@@ -62,19 +64,17 @@ epochs_num = 0
 
 batch_size = 1
 
-
 #######################################################################################
 ## Data, transform, dataset and loader
 # Data
 print('==> Preparing data ..')
 # data_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand'
 # center_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand-center'
-data_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand'
-center_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand-center'
+data_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/iPhone-hand'
+center_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/iPhone-hand-center'
 keypoints_num = 21
 test_subject_id = 0
 cubic_size = 200
-
 
 # Transform
 voxelization_train = V2VVoxelization(cubic_size=200, augmentation=True)
@@ -83,14 +83,14 @@ voxelization_val = V2VVoxelization(cubic_size=200, augmentation=False)
 
 def transform_train(sample):
     points, keypoints, refpoint = sample['points'], sample['joints'], sample['refpoint']
-    assert(keypoints.shape[0] == keypoints_num)
+    assert (keypoints.shape[0] == keypoints_num)
     input, heatmap = voxelization_train({'points': points, 'keypoints': keypoints, 'refpoint': refpoint})
     return (torch.from_numpy(input), torch.from_numpy(heatmap))
 
 
 def transform_val(sample):
     points, keypoints, refpoint = sample['points'], sample['joints'], sample['refpoint']
-    assert(keypoints.shape[0] == keypoints_num)
+    assert (keypoints.shape[0] == keypoints_num)
     input, heatmap = voxelization_val({'points': points, 'keypoints': keypoints, 'refpoint': refpoint})
     return (torch.from_numpy(input), torch.from_numpy(heatmap))
 
@@ -98,13 +98,12 @@ def transform_val(sample):
 # Dataset and loader
 train_set = MARAHandDataset(data_dir, center_dir, 'train', test_subject_id, transform_train)
 train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, num_workers=6)
-#train_num = 1
-#train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=False, num_workers=6,sampler=ChunkSampler(train_num, 0))
+# train_num = 1
+# train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=False, num_workers=6,sampler=ChunkSampler(train_num, 0))
 
 # No separate validation dataset, just use test dataset instead
 val_set = MARAHandDataset(data_dir, center_dir, 'test', test_subject_id, transform_val)
 val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=6)
-
 
 #######################################################################################
 ## Model, criterion and optimizer
@@ -120,7 +119,7 @@ if device == torch.device('cuda'):
 criterion = nn.MSELoss()
 
 optimizer = optim.Adam(net.parameters())
-#optimizer = optim.RMSprop(net.parameters(), lr=2.5e-4)
+# optimizer = optim.RMSprop(net.parameters(), lr=2.5e-4)
 
 
 #######################################################################################
@@ -128,7 +127,7 @@ optimizer = optim.Adam(net.parameters())
 if resume_train:
     # Load checkpoint
     epoch = resume_after_epoch
-    checkpoint_file = os.path.join(checkpoint_dir, 'epoch'+str(epoch)+'.pth')
+    checkpoint_file = os.path.join(checkpoint_dir, 'epoch' + str(epoch) + '.pth')
 
     print('==> Resuming from checkpoint after epoch {} ..'.format(epoch))
     assert os.path.isdir(checkpoint_dir), 'Error: no checkpoint directory found!'
@@ -138,7 +137,6 @@ if resume_train:
     net.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     start_epoch = checkpoint['epoch'] + 1
-
 
 #######################################################################################
 ## Train and Validate
@@ -150,14 +148,13 @@ for epoch in range(start_epoch, start_epoch + epochs_num):
 
     if save_checkpoint and epoch % checkpoint_per_epochs == 0:
         if not os.path.exists(checkpoint_dir): os.mkdir(checkpoint_dir)
-        checkpoint_file = os.path.join(checkpoint_dir, 'epoch'+str(epoch)+'.pth')
+        checkpoint_file = os.path.join(checkpoint_dir, 'epoch' + str(epoch) + '.pth')
         checkpoint = {
             'model_state_dict': net.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'epoch': epoch
         }
         torch.save(checkpoint, checkpoint_file)
-
 
 #######################################################################################
 ## Test
@@ -183,7 +180,7 @@ class BatchResultCollector():
         self.transform_output = transform_output
         self.keypoints = None
         self.idx = 0
-    
+
     def __call__(self, data_batch):
         inputs_batch, outputs_batch, extra_batch = data_batch
         outputs_batch = outputs_batch.cpu().numpy()
@@ -195,8 +192,8 @@ class BatchResultCollector():
             # Initialize keypoints until dimensions awailable now
             self.keypoints = np.zeros((self.samples_num, *keypoints_batch.shape[1:]))
 
-        batch_size = keypoints_batch.shape[0] 
-        self.keypoints[self.idx:self.idx+batch_size] = keypoints_batch
+        batch_size = keypoints_batch.shape[0]
+        self.keypoints[self.idx:self.idx + batch_size] = keypoints_batch
         self.idx += batch_size
 
     def get_result(self):
@@ -204,37 +201,93 @@ class BatchResultCollector():
 
 
 print('Test on test dataset ..')
+
+
 def save_keypoints(filename, keypoints):
     # Reshape one sample keypoints into one line
     keypoints = keypoints.reshape(keypoints.shape[0], -1)
     np.savetxt(filename, keypoints, fmt='%0.4f')
+
 
 test_set = MARAHandDataset(data_dir, center_dir, 'test', test_subject_id, transform_test)
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=6)
 test_res_collector = BatchResultCollector(len(test_set), transform_output)
 
 test_epoch(net, test_loader, test_res_collector, device, dtype)
-keypoints_test = test_res_collector.get_result()  #shape for original msra test: (8498, 21, 3)
-save_keypoints('./results/test_res.txt', keypoints_test)
+keypoints_test = test_res_collector.get_result()  # shape for original msra test: (8498, 21, 3)
+save_keypoints('./test_res.txt', keypoints_test)
 
-########################################################################################################################
+#######################################################################################
 # plot input depth map with estimated joints
 input_points_xyz = HandDataset(data_dir, center_dir, 'test', test_subject_id, transform_test).__getitem__(0)['points']
 input_center = HandDataset(data_dir, center_dir, 'test', test_subject_id, transform_test).ref_pts[0]
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-fig = plt.figure(figsize=(12,12))
+# # iPhone calibration
+# h = 128.
+# w = 128.
+# iw = 3088.0
+# ih = 2316.0
+# xscale = h / ih
+# yscale = w / iw
+# _fx = 2880.0796 * xscale
+# _fy = 2880.0796 * yscale
+# _ux = 1153.2035 * xscale
+# _uy = 1546.5824 * yscale
+# _refined_com = np.empty((2, 1))
+# _refined_com3D = input_center
+# _refined_com[0] = _refined_com3D[0] / _refined_com3D[2] * _fx + _ux
+# _refined_com[1] = _refined_com3D[1] / _refined_com3D[2] * _fy + _uy
+# def transform_resize_crop(M, xc, yc):
+#     '''
+#     transform from cropped-resized frame to the original 320by240 frame
+#     '''
+#     v = np.array([xc, yc, 1])
+#     invM = np.linalg.inv(M)
+#     cdd = np.inner(invM[2, :], v)
+#     x = np.inner(invM[0, :], v) * cdd
+#     y = np.inner(invM[1, :], v) * cdd
+#     return x, y
+#
+# T = np.load('/home/mahdi/HVR/git_repos/deep-prior-pp/src/cache/T.npy')
+# refined_com_x, refined_com_y = transform_resize_crop(M=T, xc=_refined_com[0], yc=_refined_com[1])
+#
+# # iPhone calibration
+# _h = 240.
+# _w = 320.
+# _iw = 3088.0
+# _ih = 2316.0
+# xscale = _h / _ih
+# yscale = _w / _iw
+# _fx = 2880.0796 * xscale
+# _fy = 2880.0796 * yscale
+# _ux = 1153.2035 * xscale
+# _uy = 1546.5824 * yscale
+# refined_com3D = np.empty((2, 1))
+# refined_com3D[0] = (refined_com_x - _ux) * input_center[2] / _fx
+# refined_com3D[1] = (refined_com_y - _uy) * input_center[2] / _fy
+# refined_center_3D_corrected = np.append(refined_com3D, input_center[2])
+# # np.savetxt('/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/iPhone-hand-center/{}_3Drefinedcom_corrected320by240.txt'.format('iPhone_30hand50wall'),
+# #            refined_center_3D_corrected, fmt='%4.12f', newline=' ')
+
+fig = plt.figure(figsize=(12, 12))
 ax = fig.gca(projection='3d')
 
 ax.scatter(input_points_xyz[:, 0], input_points_xyz[:, 1], input_points_xyz[:, 2], marker="o", s=.01)
 keypoints_test = np.squeeze(keypoints_test)
-ax.scatter(keypoints_test[:, 0], keypoints_test[:, 1], keypoints_test[:, 2], marker="x", c='red', s=10)
-ax.scatter(input_center[0], input_center[1], input_center[2], marker="X", c='black', s=10)
-ax.view_init(elev=90, azim=0)
+ax.scatter(keypoints_test[:, 0], keypoints_test[:, 1], keypoints_test[:, 2], marker="o", c='red', s=20)
+ax.scatter(input_center[0], input_center[1], input_center[2], marker="X", c='black', s=20)
+
+# ax.scatter(refined_center_3D_corrected[0], refined_center_3D_corrected[1], refined_center_3D_corrected[2], marker="X", c='green', s=20)
+
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+ax.view_init(elev=-90, azim=0)
 plt.show()
 plt.close()
-########################################################################################################################
+#######################################################################################
 
 
 # print('Fit on train dataset ..')
