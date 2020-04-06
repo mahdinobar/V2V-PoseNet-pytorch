@@ -6,18 +6,22 @@ from torch.utils.data import Dataset
 from skimage import io
 from skimage.transform import resize
 import matplotlib.pyplot as plt
+import open3d as o3d
+from PIL import Image
 
 
 def pixel2world(x, y, z, img_width, img_height, fx, fy, cx, cy):
     w_x = (x - cx) * z / fx
-    w_y = (cy - y) * z / fy
+    # w_y = (cy - y) * z / fy
+    w_y = (y - cy) * z / fy
     w_z = z
     return w_x, w_y, w_z
 
 
 def world2pixel(x, y, z, img_width, img_height, fx, fy, cx, cy):
     p_x = x * fx / z + cx
-    p_y = cy - y * fy / z
+    # p_y = cy - y * fy / z
+    p_y = y * fy / z - cy
     return p_x, p_y
 
 
@@ -50,14 +54,58 @@ def load_depthmap(filename, img_width, img_height, max_depth):
 
     # return depth_image
 
-    depth_image = io.imread(filename)
-    # io.imshow(depth_image)
-    # io.show()
-    # resize the input depth map
-    depth_image = resize(depth_image, (240, 320, 3))[:, :, 0]
-    # io.imshow(depth_image, cmap=plt.cm.gray)
-    # io.show()
-    return depth_image * 1000
+    # depth_image = io.imread(filename)
+    # # io.imshow(depth_image)
+    # # io.show()
+    # # resize the input depth map
+    # depth_image = resize(depth_image, (240, 320, 3))[:, :, 0]
+    # # io.imshow(depth_image, cmap=plt.cm.gray)
+    # # io.show()
+    # return depth_image * 1000
+    # temporary: must be changed ###########################################################################################
+    def subtract_depth(pcl):
+        shallowest_point = abs(np.asarray(pcl.points)[:, 2]).min()
+        arg_not_acceptable = np.argwhere(abs(np.asarray(pcl.points)[:, 2]) > shallowest_point + 0.07)
+        _xyz = np.asarray(pcl.points)
+        _rgb = np.asarray(pcl.colors)
+        _xyz[arg_not_acceptable, :] = np.array((None, None, None))
+        _rgb[arg_not_acceptable, :] = np.array((None, None, None))
+        _pcl = o3d.geometry.PointCloud()
+        _pcl.colors = o3d.utility.Vector3dVector(_rgb)
+        _pcl.points = o3d.utility.Vector3dVector(_xyz)
+        return _pcl
+
+    color_raw = o3d.io.read_image('/home/mahdi/HVR/hvr/hand_pcl_iPhone/Tom_set_2/iPhone/hand30wall50_color.png')
+    depth_raw = o3d.io.read_image(filename)
+    color_raw = o3d.geometry.Image(np.asarray(color_raw))
+    rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(
+        color_raw, depth_raw, depth_scale=0.529, depth_trunc=30.0, convert_rgb_to_intensity=False)
+    # iPhone calibration
+    h = np.asarray(color_raw).shape[0]  # 480
+    w = np.asarray(color_raw).shape[1]  # 640
+    iw = 3088.0
+    ih = 2316.0
+    xscale = h / ih
+    yscale = w / iw
+    _fx = 2880.0796 * xscale
+    _fy = 2880.0796 * yscale
+    # _cx = 1546.5824 * xscale
+    # _cy = 1153.2035 * yscale
+    _cx = 1153.2035 * xscale
+    _cy = 1546.5824 * yscale
+    setIntrinsic = o3d.camera.PinholeCameraIntrinsic()
+    setIntrinsic.set_intrinsics(width=w, height=h, fx=_fx, fy=_fy, cx=_cx, cy=_cy)
+    pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
+        rgbd_image,
+        setIntrinsic)
+    pcd = subtract_depth(pcd)
+    # Flip it, otherwise the pointcloud will be upside down
+    pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+    z_values = -(np.asarray(pcd.points)[:, 2] * 1000)  # in mm
+    depth_map = np.reshape(z_values, (480, 640))
+    imgdata = np.asarray(Image.fromarray(depth_map).resize((320, 240)))
+    # temporary: must be changed ###########################################################################################
+    return np.copy(imgdata)
 
 
 class HandDataset(Dataset):
@@ -65,7 +113,7 @@ class HandDataset(Dataset):
         self.img_width = 320
         self.img_height = 240
         self.min_depth = 100
-        self.max_depth = 700
+        self.max_depth = 400
 
         # iPhone calibration
         iw = 3088.0
