@@ -189,8 +189,8 @@ class MARAHandDataset(Dataset):
 
 ##%%
 # Generate train_subject3_gt.txt and test_subject3_gt.txt
-data_dir = r'/home/maiqi/yalong/dataset/cvpr15_MSRAHandGestureDB'
-center_dir = r'/home/maiqi/yalong/project/KeyPoint/Code/V2V-PoseNet-Rlease-Codes/V2V-PoseNet_RELEASE-hand/data-result/MSRA-result/center'
+data_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand'
+center_dir = r'/home/mahdi/HVR/git_repos/V2V-PoseNet-pytorch/datasets/msra-hand-center'
 test_subject_id = 3
 
 
